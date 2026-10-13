@@ -1,5 +1,5 @@
 import { DEFAULT_PLATES_KG } from "@/domain/plates";
-import { SPLIT_MUSCLE_GROUPS, type TemplateSlot } from "@/domain/types";
+import { SPLIT_MUSCLE_GROUPS, type TemplateSlot, type WorkoutTemplate } from "@/domain/types";
 import { type FitnessDB, newId, nowIso } from "../db";
 import {
   SEED_DEFAULT_TARGET,
@@ -15,6 +15,7 @@ export const TEMPLATE_A_ID = "tpl-a";
 export const TEMPLATE_B_ID = "tpl-b";
 const TEMPLATE_A_DESCRIPTION = "Brust, Rücken, Schultern, Bizeps, Trizeps, Bauch";
 export const MIGRATION_SHOULDERS = "migration:shoulders-v1";
+export const MIGRATION_HIP = "migration:hip-add-abd-v1";
 
 function slotsFor(templateId: string, slots: SeedSlot[], now: string): TemplateSlot[] {
   return slots.map((s, i) => ({
@@ -126,66 +127,99 @@ async function seedInitial(db: FitnessDB): Promise<boolean> {
   );
 }
 
+interface SeedAddition {
+  /** Flag in `meta` – jede Ergänzung läuft genau einmal. */
+  key: string;
+  templateId: string;
+  deviceIds: string[];
+  /** Neue Positionen in dieser Reihenfolge, hinter `afterExerciseId` (sonst ans Ende). */
+  slots: { id: string; exerciseId: string }[];
+  afterExerciseId: string;
+  /** Optional: erlaubte Muskelgruppen/Beschreibung der Vorlage aktualisieren. */
+  template?: Partial<Pick<WorkoutTemplate, "allowedMuscleGroups" | "description">>;
+}
+
+export const SEED_ADDITIONS: SeedAddition[] = [
+  {
+    key: MIGRATION_SHOULDERS,
+    templateId: TEMPLATE_A_ID,
+    deviceIds: ["dev-shoulder-press"],
+    slots: [{ id: "slot-a-9", exerciseId: "ex-shoulder-press" }],
+    afterExerciseId: "ex-reverse-butterfly",
+    template: { allowedMuscleGroups: SPLIT_MUSCLE_GROUPS.A, description: TEMPLATE_A_DESCRIPTION },
+  },
+  {
+    key: MIGRATION_HIP,
+    templateId: TEMPLATE_B_ID,
+    deviceIds: ["dev-hip-add-abd"],
+    slots: [
+      { id: "slot-b-6", exerciseId: "ex-hip-adduction" },
+      { id: "slot-b-7", exerciseId: "ex-hip-abduction" },
+    ],
+    afterExerciseId: "ex-leg-curl",
+  },
+];
+
 /**
  * Ergänzt bestehende Installationen um später hinzugefügte Seed-Inhalte.
- * Jede Migration läuft genau einmal (Flag in `meta`) und überschreibt keine
- * Nutzeränderungen: Fehlende Einträge werden angelegt, vorhandene bleiben.
+ * Jede Ergänzung läuft genau einmal (Flag in `meta`) und überschreibt keine
+ * Nutzeränderungen: Fehlende Einträge werden angelegt, vorhandene bleiben,
+ * bewusst entfernte Übungen werden nicht erneut eingefügt.
  */
 export async function applyMigrations(db: FitnessDB): Promise<void> {
-  await db.transaction(
-    "rw",
-    [db.meta, db.devices, db.exercises, db.templates, db.templateSlots],
-    async () => {
-      if (await db.meta.get(MIGRATION_SHOULDERS)) return;
-      const now = nowIso();
-      const seedDevice = SEED_DEVICES.find((d) => d.id === "dev-shoulder-press")!;
-      const seedExercise = SEED_EXERCISES.find((e) => e.id === "ex-shoulder-press")!;
+  for (const add of SEED_ADDITIONS) {
+    await db.transaction(
+      "rw",
+      [db.meta, db.devices, db.exercises, db.templates, db.templateSlots],
+      async () => {
+        if (await db.meta.get(add.key)) return;
+        const now = nowIso();
 
-      if (!(await db.devices.get(seedDevice.id))) {
-        await db.devices.add({
-          id: seedDevice.id,
-          brand: "Cybex",
-          name: seedDevice.name,
-          muscleGroup: seedDevice.muscleGroup,
-          loadingType: seedDevice.loadingType,
-          description: seedDevice.description,
-          illustrationKey: seedDevice.illustrationKey,
-          image: { kind: "illustration" },
-          isSeed: true,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
-      if (!(await db.exercises.get(seedExercise.id))) {
-        await db.exercises.add({ ...seedExercise, isSeed: true, createdAt: now, updatedAt: now });
-      }
-
-      const tplA = await db.templates.get(TEMPLATE_A_ID);
-      if (tplA) {
-        if (!tplA.allowedMuscleGroups.includes("schultern")) {
-          await db.templates.update(TEMPLATE_A_ID, {
-            allowedMuscleGroups: SPLIT_MUSCLE_GROUPS.A,
-            description: TEMPLATE_A_DESCRIPTION,
+        for (const deviceId of add.deviceIds) {
+          const d = SEED_DEVICES.find((x) => x.id === deviceId)!;
+          if (await db.devices.get(d.id)) continue;
+          await db.devices.add({
+            id: d.id,
+            brand: "Cybex",
+            name: d.name,
+            muscleGroup: d.muscleGroup,
+            loadingType: d.loadingType,
+            description: d.description,
+            illustrationKey: d.illustrationKey,
+            image: { kind: "illustration" },
+            isSeed: true,
+            createdAt: now,
             updatedAt: now,
           });
         }
-        const slots = await db.templateSlots.where("templateId").equals(TEMPLATE_A_ID).sortBy("order");
-        if (!slots.some((s) => s.exerciseId === seedExercise.id)) {
-          const [newSlot] = slotsFor(
-            TEMPLATE_A_ID,
-            [{ id: (await db.templateSlots.get("slot-a-9")) ? newId() : "slot-a-9", exerciseId: seedExercise.id }],
-            now,
-          );
-          // Hinter Reverse Butterfly einsortieren, sonst ans Ende.
-          const anchor = slots.findIndex((s) => s.exerciseId === "ex-reverse-butterfly");
-          const insertAt = anchor >= 0 ? anchor + 1 : slots.length;
-          const ordered = [...slots.slice(0, insertAt), newSlot, ...slots.slice(insertAt)];
-          await db.templateSlots.add(newSlot);
-          await Promise.all(ordered.map((s, i) => db.templateSlots.update(s.id, { order: i })));
+        for (const { exerciseId } of add.slots) {
+          const e = SEED_EXERCISES.find((x) => x.id === exerciseId)!;
+          if (!(await db.exercises.get(e.id))) {
+            await db.exercises.add({ ...e, isSeed: true, createdAt: now, updatedAt: now });
+          }
         }
-      }
 
-      await db.meta.put({ key: MIGRATION_SHOULDERS, value: now });
-    },
-  );
+        const tpl = await db.templates.get(add.templateId);
+        if (tpl) {
+          if (add.template) await db.templates.update(tpl.id, { ...add.template, updatedAt: now });
+          const slots = await db.templateSlots.where("templateId").equals(tpl.id).sortBy("order");
+          const missing = add.slots.filter((x) => !slots.some((s) => s.exerciseId === x.exerciseId));
+          if (missing.length > 0) {
+            const created: TemplateSlot[] = [];
+            for (const m of missing) {
+              const id = (await db.templateSlots.get(m.id)) ? newId() : m.id;
+              created.push(...slotsFor(tpl.id, [{ id, exerciseId: m.exerciseId }], now));
+            }
+            const anchor = slots.findIndex((s) => s.exerciseId === add.afterExerciseId);
+            const insertAt = anchor >= 0 ? anchor + 1 : slots.length;
+            const ordered = [...slots.slice(0, insertAt), ...created, ...slots.slice(insertAt)];
+            await db.templateSlots.bulkAdd(created);
+            await Promise.all(ordered.map((s, i) => db.templateSlots.update(s.id, { order: i })));
+          }
+        }
+
+        await db.meta.put({ key: add.key, value: now });
+      },
+    );
+  }
 }

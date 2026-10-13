@@ -80,17 +80,18 @@ Die UI greift ausschliesslich über `repos` (`src/data/index.ts`) auf Daten zu. 
 
 ## Echte Cybex-Geräte und Bilder ergänzen
 
-Die 14 vorbereiteten Geräte sind **Gerätekategorien**, keine verifizierten Modelle. Sie tragen bewusst keine Modell- oder Seriennummern und zeigen „Konkretes Modell noch nicht hinterlegt“. Die Abbildungen sind eigene, schematische Strichillustrationen (je Gerät unterschiedlich) und als „Illustration – kein Produktfoto“ gekennzeichnet.
+Die 15 vorbereiteten Geräte sind **Gerätekategorien**, keine verifizierten Modelle. Sie tragen bewusst keine Modell- oder Seriennummern und zeigen „Konkretes Modell noch nicht hinterlegt“. Die Abbildungen sind eigene, schematische Strichillustrationen (je Gerät unterschiedlich) und als „Illustration – kein Produktfoto“ gekennzeichnet.
 
 1. **Geräte → Gerät antippen.** Unter „Modell“ und „Serie“ die Bezeichnung eintragen, die tatsächlich am Gerät im Studio steht.
 2. **Eigenes Foto:** „Eigenes Foto“ wählen (Kamera oder Galerie). Das Bild wird verkleinert, lokal gespeichert und ist im Backup enthalten. Erneutes Hochladen ersetzt es.
 3. **Bild-URL:** Nur verwenden, wenn Quelle und Nutzungsrecht geklärt sind. Quelle ist ein Pflichtfeld, das Nutzungsrecht wird mitgespeichert. Externe Bilder werden online geladen und sind nicht im Backup enthalten. Bei Ladefehlern erscheint automatisch die Illustration.
-4. **Kombimaschine Butterfly / Reverse Butterfly:** Trainingsplan → Training A → Reverse Butterfly → Bearbeiten → Gerät „Cybex Butterfly / Pec Fly“ wählen. Historien, Einstellungen und Bestleistungen bleiben je Übung getrennt. Das separate Rear-Delt-Gerät kann danach archiviert werden.
+4. **Kombimaschinen:** Adduktoren und Abduktoren sind bereits als zwei Übungen an einer gemeinsamen Maschine angelegt (getrennte Historien und Einstellungen). Gibt es im Studio zwei getrennte Geräte: neues Gerät anlegen und eine der Übungen im Trainingsplan diesem Gerät zuordnen.
+   **Butterfly / Reverse Butterfly:** Trainingsplan → Training A → Reverse Butterfly → Bearbeiten → Gerät „Cybex Butterfly / Pec Fly“ wählen. Historien, Einstellungen und Bestleistungen bleiben je Übung getrennt. Das separate Rear-Delt-Gerät kann danach archiviert werden.
 5. **Beinbeuger sitzend/liegend:** Die Ausführung beim Gerät unter „Ausführung / Variante“ eintragen. Für eine **zweite** Ausführung mit eigener Historie im Trainingsplan „Neue Übung anlegen“.
 6. **Plate-loaded Startgewicht:** Nur einen gesicherten Wert eintragen und bewusst entscheiden, ob er in die Kennzahl einfliesst. Sätze mit und ohne Startgewicht bilden getrennte Vergleichsreihen; alte Sätze werden nicht umgerechnet.
 7. **Neue Geräte:** Geräte → „+ Gerät“. Nicht mehr vorhandene Geräte **archivieren** statt löschen – die Historie zeigt sie weiterhin korrekt an.
 
-Bei vorbereiteten Geräten den Code (`src/data/seed/seedData.ts`) nur für neue Installationen ändern; bestehende Installationen werden nicht erneut geseedet. Später ergänzte Inhalte (z. B. die Schulterpresse) kommen über einmalige Migrationen in `applyMigrations` (`src/data/seed/seed.ts`): Sie legen nur Fehlendes an, überschreiben keine eigenen Änderungen und fügen eine bewusst entfernte Übung nicht erneut ein. Nach dem Import eines älteren Backups laufen sie einmal über die importierten Daten.
+Bei vorbereiteten Geräten den Code (`src/data/seed/seedData.ts`) nur für neue Installationen ändern; bestehende Installationen werden nicht erneut geseedet. Später ergänzte Inhalte (Schulterpresse, Adduktoren-/Abduktorenmaschine) kommen über einmalige Ergänzungen in `src/data/seed/seed.ts` (`SEED_ADDITIONS`, `applyMigrations`): Sie legen nur Fehlendes an, überschreiben keine eigenen Änderungen und fügen eine bewusst entfernte Übung nicht erneut ein. Nach dem Import eines älteren Backups laufen sie einmal über die importierten Daten.
 
 ## Bekannte Einschränkungen
 

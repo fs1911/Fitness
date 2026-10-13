@@ -183,6 +183,19 @@ const drawings: Record<string, React.ReactNode> = {
       <Arrow d="M110 72 Q116 52 100 42" />
     </>
   ),
+  "hip-add-abd": (
+    <>
+      <Floor />
+      <Stack />
+      <Seat x={30} y={80} w={40} />
+      <rect x={30} y={44} width={8} height={36} rx={3} />
+      <rect x={70} y={62} width={7} height={22} rx={3} />
+      <rect x={92} y={62} width={7} height={22} rx={3} />
+      <path d="M73 84 V96 M96 84 V96" />
+      <Arrow d="M64 54 H52" />
+      <Arrow d="M104 54 H116" />
+    </>
+  ),
   calf: (
     <>
       <Floor />

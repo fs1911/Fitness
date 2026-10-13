@@ -132,6 +132,15 @@ export const SEED_DEVICES: SeedDevice[] = [
       "Beinbeuger mit Gewichtsblock. Ausführung (z. B. sitzend oder liegend) bei der Übung als Variante hinterlegbar.",
   },
   {
+    id: "dev-hip-add-abd",
+    name: "Cybex Adduktoren-/Abduktorenmaschine",
+    muscleGroup: "beine",
+    loadingType: "selectorized",
+    illustrationKey: "hip-add-abd",
+    description:
+      "Kombimaschine mit Gewichtsblock für Adduktoren (Beine zusammendrücken) und Abduktoren (Beine auseinanderdrücken). Beide Übungen führen getrennte Historien und Einstellungen.",
+  },
+  {
     id: "dev-calf",
     name: "Cybex Wadenmaschine",
     muscleGroup: "beine",
@@ -186,6 +195,20 @@ export const SEED_EXERCISES: SeedExercise[] = [
     deviceId: "dev-leg-curl",
     description: "Ausführung (sitzend / liegend) als Variante ergänzbar.",
   },
+  {
+    id: "ex-hip-adduction",
+    name: "Adduktoren",
+    muscleGroup: "beine",
+    deviceId: "dev-hip-add-abd",
+    description: "Beine gegen den Widerstand zusammendrücken.",
+  },
+  {
+    id: "ex-hip-abduction",
+    name: "Abduktoren",
+    muscleGroup: "beine",
+    deviceId: "dev-hip-add-abd",
+    description: "Beine gegen den Widerstand auseinanderdrücken.",
+  },
   { id: "ex-calf-raise", name: "Wadenheben", muscleGroup: "beine", deviceId: "dev-calf" },
 ];
 
@@ -217,6 +240,8 @@ export const SEED_TEMPLATE_B_SLOTS: SeedSlot[] = [
   },
   { id: "slot-b-2", exerciseId: "ex-leg-extension" },
   { id: "slot-b-3", exerciseId: "ex-leg-curl" },
+  { id: "slot-b-6", exerciseId: "ex-hip-adduction" },
+  { id: "slot-b-7", exerciseId: "ex-hip-abduction" },
   { id: "slot-b-4", exerciseId: "ex-calf-raise" },
   { id: "slot-b-5", exerciseId: "ex-crunch" },
 ];
