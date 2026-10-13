@@ -1,0 +1,12 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Name des bestehenden Workers im Cloudflare-Dashboard
+  "name": "fitness",
+  "compatibility_date": "2026-10-13",
+  // Reine statische App (Next.js-Export) – kein Worker-Code nötig
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  }
+}

@@ -22,6 +22,15 @@ npm start            # ./out lokal ausliefern (http://localhost:3000)
 
 Der Build ist eine rein statische Seite (`output: "export"`). `./out` kann auf jedem Webserver bzw. Static Hosting (Netlify, Vercel, GitHub Pages, eigener Server) liegen. Für die Installation als App auf dem Handy wird HTTPS benötigt.
 
+### Hosting auf Cloudflare Workers
+
+`wrangler.jsonc` liefert `./out` als statische Assets über den Worker `fitness` aus (kein Worker-Code).
+
+- **Automatisch über GitHub (empfohlen):** Cloudflare-Dashboard → Workers & Pages → `fitness` → Settings → Build → Repository `fs1911/Fitness` verbinden. Build command `npm run build`, Deploy command `npx wrangler deploy`, Root directory `/`, Branch = der Branch, der live gehen soll.
+- **Manuell:** `npx wrangler login`, danach `npm run deploy`.
+
+Die Daten liegen pro Domain im Browser. Wechselst du später die Adresse (z. B. von `*.workers.dev` auf eine eigene Domain), startet die App dort leer → vorher Backup exportieren und danach importieren.
+
 ### Qualitätssicherung
 
 ```bash
