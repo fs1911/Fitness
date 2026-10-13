@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { freshRepos, logSet, sessionExerciseFor } from "../helpers";
-import { TEMPLATE_A_ID, TEMPLATE_B_ID } from "@/data/seed/seed";
+import { ensureSeeded, MIGRATION_HIP, MIGRATION_SHOULDERS, TEMPLATE_A_ID, TEMPLATE_B_ID } from "@/data/seed/seed";
 import { SEED_DEVICES } from "@/data/seed/seedData";
 import { ActiveSessionExistsError, SetsWouldBeLostError } from "@/data/repositories/sessions";
 import { computeVolume } from "@/domain/metrics";
@@ -10,21 +10,21 @@ import { FitnessDB } from "@/data/db";
 import { createRepositories } from "@/data";
 
 describe("Vorbereitete Daten beim ersten Start", () => {
-  it("alle 13 vorbereiteten Geräte sind vorhanden, ohne erfundene Modellnummern", async () => {
+  it("alle 15 vorbereiteten Geräte sind vorhanden, ohne erfundene Modellnummern", async () => {
     const r = await freshRepos();
     const devices = await r.devices.list();
-    expect(devices).toHaveLength(13);
+    expect(devices).toHaveLength(15);
     for (const d of SEED_DEVICES) expect(devices.find((x) => x.id === d.id)).toBeTruthy();
     expect(devices.every((d) => d.brand === "Cybex" && d.model === undefined && d.series === undefined)).toBe(true);
     // Jedes Gerät hat eine eigene Illustration – nicht dasselbe Bild für alle.
-    expect(new Set(devices.map((d) => d.illustrationKey)).size).toBe(13);
+    expect(new Set(devices.map((d) => d.illustrationKey)).size).toBe(15);
   });
 
   it("Seed ist idempotent", async () => {
     const r = await freshRepos();
     const { ensureSeeded } = await import("@/data/seed/seed");
     expect(await ensureSeeded(r.db)).toBe(false);
-    expect(await r.db.devices.count()).toBe(13);
+    expect(await r.db.devices.count()).toBe(15);
   });
 
   it("alle Übungen in Training A und B besitzen eine gültige Gerätezuordnung und passende Muskelgruppen", async () => {
@@ -51,6 +51,7 @@ describe("Vorbereitete Daten beim ersten Start", () => {
       "ex-lat-pulldown",
       "ex-row",
       "ex-reverse-butterfly",
+      "ex-shoulder-press",
       "ex-biceps-curl",
       "ex-triceps-extension",
       "ex-crunch",
@@ -61,6 +62,8 @@ describe("Vorbereitete Daten beim ersten Start", () => {
     expect(b.map((s) => s.exerciseId).slice(1)).toEqual([
       "ex-leg-extension",
       "ex-leg-curl",
+      "ex-hip-adduction",
+      "ex-hip-abduction",
       "ex-calf-raise",
       "ex-crunch",
     ]);
@@ -161,8 +164,8 @@ describe("Trainingsvorlagen", () => {
     expect((await r.db.templateSlots.get(slot.id))!.targetSets).toBe(5);
     await r.templates.removeSlot(slot.id);
     slots = await r.templates.slots(TEMPLATE_A_ID);
-    expect(slots).toHaveLength(8);
-    expect(slots.map((s) => s.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(slots).toHaveLength(9);
+    expect(slots.map((s) => s.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
   it("verhindert Übungen fremder Muskelgruppen (verbindlicher Split)", async () => {
@@ -197,8 +200,8 @@ describe("Training durchführen", () => {
     const r = await freshRepos();
     const s = await r.sessions.start(TEMPLATE_A_ID);
     const ses = await r.sessions.exercises(s.id);
-    expect(ses).toHaveLength(8);
-    expect((await r.sessions.sets(s.id)).length).toBe(24); // 8 × 3 leere Satzzeilen
+    expect(ses).toHaveLength(9);
+    expect((await r.sessions.sets(s.id)).length).toBe(27); // 9 × 3 leere Satzzeilen
     await logSet(r, ses[0].id, 0, 42.5, 10);
     await logSet(r, ses[0].id, 1, 42.5, 9);
 
@@ -527,5 +530,95 @@ describe("Backup", () => {
     expect(lines[0]).toContain("Gewicht (kg)");
     expect(lines[1]).toContain("Rudern");
     expect(lines[1]).toContain("45.5");
+  });
+});
+
+describe("Schultern (Migration bestehender Installationen)", () => {
+  async function simulateOldInstall() {
+    const r = await freshRepos();
+    // Zustand vor der Erweiterung herstellen
+    const slot = (await r.templates.slots(TEMPLATE_A_ID)).find((x) => x.exerciseId === "ex-shoulder-press")!;
+    await r.templates.removeSlot(slot.id);
+    await r.db.exercises.delete("ex-shoulder-press");
+    await r.db.devices.delete("dev-shoulder-press");
+    await r.db.templates.update(TEMPLATE_A_ID, {
+      allowedMuscleGroups: ["brust", "ruecken", "bizeps", "trizeps", "bauch"],
+      description: "Brust, Rücken, Bizeps, Trizeps, Bauch",
+    });
+    await r.db.meta.delete(MIGRATION_SHOULDERS);
+    return r;
+  }
+
+  it("ergänzt Gerät, Übung, Muskelgruppe und Position hinter Reverse Butterfly genau einmal", async () => {
+    const r = await simulateOldInstall();
+    await r.devices.update("dev-chest-press", { name: "Meine Brustpresse", muscleGroup: "brust", loadingType: "selectorized" });
+    await ensureSeeded(r.db);
+    expect((await r.devices.get("dev-shoulder-press"))?.muscleGroup).toBe("schultern");
+    expect((await r.templates.get(TEMPLATE_A_ID))!.allowedMuscleGroups).toContain("schultern");
+    const ids = (await r.templates.slots(TEMPLATE_A_ID)).map((x) => x.exerciseId);
+    expect(ids.indexOf("ex-shoulder-press")).toBe(ids.indexOf("ex-reverse-butterfly") + 1);
+    expect((await r.templates.slots(TEMPLATE_A_ID)).map((x) => x.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
+    // Nutzeränderungen bleiben erhalten
+    expect((await r.devices.get("dev-chest-press"))!.name).toBe("Meine Brustpresse");
+    await ensureSeeded(r.db);
+    expect((await r.templates.slots(TEMPLATE_A_ID)).filter((x) => x.exerciseId === "ex-shoulder-press")).toHaveLength(1);
+  });
+
+  it("vom Nutzer entfernte Schulterpresse wird nicht erneut eingefügt", async () => {
+    const r = await freshRepos();
+    const slot = (await r.templates.slots(TEMPLATE_A_ID)).find((x) => x.exerciseId === "ex-shoulder-press")!;
+    await r.templates.removeSlot(slot.id);
+    await ensureSeeded(r.db);
+    expect((await r.templates.slots(TEMPLATE_A_ID)).some((x) => x.exerciseId === "ex-shoulder-press")).toBe(false);
+  });
+
+  it("Schulterpresse ist in Training B nicht zulässig", async () => {
+    const r = await freshRepos();
+    await expect(
+      r.templates.addSlot(TEMPLATE_B_ID, { exerciseId: "ex-shoulder-press", targetSets: 3, targetRepsMin: 8, targetRepsMax: 10 }),
+    ).rejects.toThrow();
+  });
+});
+
+describe("Adduktoren / Abduktoren (Kombimaschine)", () => {
+  it("beide Übungen nutzen dasselbe Gerät, führen aber getrennte Historien und Einstellungen", async () => {
+    const r = await freshRepos();
+    await r.exercises.saveSetting("ex-hip-adduction", "dev-hip-add-abd", { startPosition: "weit" });
+    await r.exercises.saveSetting("ex-hip-abduction", "dev-hip-add-abd", { startPosition: "eng" });
+    const s = await r.sessions.start(TEMPLATE_B_ID);
+    const add = await sessionExerciseFor(r, s.id, "ex-hip-adduction");
+    const abd = await sessionExerciseFor(r, s.id, "ex-hip-abduction");
+    expect(add.deviceId).toBe("dev-hip-add-abd");
+    expect(abd.deviceId).toBe("dev-hip-add-abd");
+    expect(add.snapshot.settingsText).toContain("weit");
+    expect(abd.snapshot.settingsText).toContain("eng");
+    await logSet(r, add.id, 0, 50, 15);
+    await logSet(r, abd.id, 0, 35, 15);
+    await r.sessions.complete(s.id);
+    expect((await r.progress.seriesForExercise("ex-hip-adduction"))[0].points[0].topWeight).toBe(50);
+    expect((await r.progress.seriesForExercise("ex-hip-abduction"))[0].points[0].topWeight).toBe(35);
+  });
+
+  it("Migration ergänzt beide Positionen hinter dem Beinbeuger genau einmal", async () => {
+    const r = await freshRepos();
+    for (const slot of await r.templates.slots(TEMPLATE_B_ID)) {
+      if (slot.exerciseId.startsWith("ex-hip-")) await r.templates.removeSlot(slot.id);
+    }
+    await r.db.exercises.bulkDelete(["ex-hip-adduction", "ex-hip-abduction"]);
+    await r.db.devices.delete("dev-hip-add-abd");
+    await r.db.meta.delete(MIGRATION_HIP);
+    await ensureSeeded(r.db);
+    await ensureSeeded(r.db);
+    const ids = (await r.templates.slots(TEMPLATE_B_ID)).map((x) => x.exerciseId);
+    expect(ids).toEqual([
+      "ex-leg-press-stack",
+      "ex-leg-extension",
+      "ex-leg-curl",
+      "ex-hip-adduction",
+      "ex-hip-abduction",
+      "ex-calf-raise",
+      "ex-crunch",
+    ]);
+    expect((await r.templates.slots(TEMPLATE_B_ID)).map((x) => x.order)).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 });

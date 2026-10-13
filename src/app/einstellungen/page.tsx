@@ -172,7 +172,7 @@ export default function SettingsPage() {
       <SectionTitle>Über die App</SectionTitle>
       <Card className="space-y-2 text-sm text-muted">
         <p>
-          Zweier-Split: Training A (Brust, Rücken, Bizeps, Trizeps, Bauch) und Training B (Beine, Bauch). Vorbereitete
+          Zweier-Split: Training A (Brust, Rücken, Schultern, Bizeps, Trizeps, Bauch) und Training B (Beine, Bauch). Vorbereitete
           Cybex-Gerätekategorien ohne verifizierte Modellangaben; Abbildungen sind schematische Illustrationen, keine
           Produktfotos.
         </p>
