@@ -17,6 +17,7 @@ export type ISODateString = string;
 export const MUSCLE_GROUPS = [
   "brust",
   "ruecken",
+  "schultern",
   "bizeps",
   "trizeps",
   "bauch",
@@ -27,6 +28,7 @@ export type MuscleGroup = (typeof MUSCLE_GROUPS)[number];
 export const MUSCLE_GROUP_LABELS: Record<MuscleGroup, string> = {
   brust: "Brust",
   ruecken: "Rücken",
+  schultern: "Schultern",
   bizeps: "Bizeps",
   trizeps: "Trizeps",
   bauch: "Bauch",
@@ -37,7 +39,7 @@ export type Split = "A" | "B";
 
 /** Verbindliche Muskelgruppen-Zuordnung des Zweier-Splits. */
 export const SPLIT_MUSCLE_GROUPS: Record<Split, MuscleGroup[]> = {
-  A: ["brust", "ruecken", "bizeps", "trizeps", "bauch"],
+  A: ["brust", "ruecken", "schultern", "bizeps", "trizeps", "bauch"],
   B: ["beine", "bauch"],
 };
 

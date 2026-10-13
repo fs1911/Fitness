@@ -87,6 +87,18 @@ const drawings: Record<string, React.ReactNode> = {
       <Arrow d="M90 72 H62" />
     </>
   ),
+  "shoulder-press": (
+    <>
+      <Floor />
+      <Stack />
+      <Seat x={34} y={84} />
+      <rect x={42} y={36} width={8} height={48} rx={3} />
+      <path d="M50 46 L70 46 L70 22" />
+      <path d="M62 22 H78" />
+      <path d="M78 22 L104 22 L124 30" strokeDasharray="2 3" />
+      <Arrow d="M88 50 V18" />
+    </>
+  ),
   biceps: (
     <>
       <Floor />

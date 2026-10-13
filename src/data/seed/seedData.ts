@@ -66,6 +66,14 @@ export const SEED_DEVICES: SeedDevice[] = [
       "Separates Gerät für Reverse Butterfly. Wird im Studio eine Kombimaschine genutzt, kann die Übung stattdessen dem Butterfly-Gerät zugeordnet werden.",
   },
   {
+    id: "dev-shoulder-press",
+    name: "Cybex Schulterpresse",
+    muscleGroup: "schultern",
+    loadingType: "selectorized",
+    illustrationKey: "shoulder-press",
+    description: "Schulterpresse mit Gewichtsblock. Gewicht wird per Steckstift gewählt.",
+  },
+  {
     id: "dev-biceps",
     name: "Cybex Bizepsmaschine",
     muscleGroup: "bizeps",
@@ -144,6 +152,12 @@ export const SEED_EXERCISES: SeedExercise[] = [
     muscleGroup: "ruecken",
     deviceId: "dev-rear-delt",
   },
+  {
+    id: "ex-shoulder-press",
+    name: "Schulterpresse",
+    muscleGroup: "schultern",
+    deviceId: "dev-shoulder-press",
+  },
   { id: "ex-biceps-curl", name: "Bizepscurls", muscleGroup: "bizeps", deviceId: "dev-biceps" },
   {
     id: "ex-triceps-extension",
@@ -188,6 +202,7 @@ export const SEED_TEMPLATE_A_SLOTS: SeedSlot[] = [
   { id: "slot-a-3", exerciseId: "ex-lat-pulldown" },
   { id: "slot-a-4", exerciseId: "ex-row" },
   { id: "slot-a-5", exerciseId: "ex-reverse-butterfly" },
+  { id: "slot-a-9", exerciseId: "ex-shoulder-press" },
   { id: "slot-a-6", exerciseId: "ex-biceps-curl" },
   { id: "slot-a-7", exerciseId: "ex-triceps-extension" },
   { id: "slot-a-8", exerciseId: "ex-crunch" },

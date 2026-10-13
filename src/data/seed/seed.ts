@@ -1,6 +1,6 @@
 import { DEFAULT_PLATES_KG } from "@/domain/plates";
 import { SPLIT_MUSCLE_GROUPS, type TemplateSlot } from "@/domain/types";
-import { type FitnessDB, nowIso } from "../db";
+import { type FitnessDB, newId, nowIso } from "../db";
 import {
   SEED_DEFAULT_TARGET,
   SEED_DEVICES,
@@ -13,6 +13,8 @@ import {
 export const SEED_VERSION = "1";
 export const TEMPLATE_A_ID = "tpl-a";
 export const TEMPLATE_B_ID = "tpl-b";
+const TEMPLATE_A_DESCRIPTION = "Brust, Rücken, Schultern, Bizeps, Trizeps, Bauch";
+export const MIGRATION_SHOULDERS = "migration:shoulders-v1";
 
 function slotsFor(templateId: string, slots: SeedSlot[], now: string): TemplateSlot[] {
   return slots.map((s, i) => ({
@@ -37,6 +39,12 @@ function slotsFor(templateId: string, slots: SeedSlot[], now: string): TemplateS
  * Idempotent: läuft in einer Transaktion und nur, wenn noch nie geseedet wurde.
  */
 export async function ensureSeeded(db: FitnessDB): Promise<boolean> {
+  const seeded = await seedInitial(db);
+  await applyMigrations(db);
+  return seeded;
+}
+
+async function seedInitial(db: FitnessDB): Promise<boolean> {
   return db.transaction(
     "rw",
     [db.meta, db.devices, db.exercises, db.templates, db.templateSlots, db.settings],
@@ -80,7 +88,7 @@ export async function ensureSeeded(db: FitnessDB): Promise<boolean> {
           id: TEMPLATE_A_ID,
           split: "A",
           name: "Training A – Oberkörper und Bauch",
-          description: "Brust, Rücken, Bizeps, Trizeps, Bauch",
+          description: TEMPLATE_A_DESCRIPTION,
           allowedMuscleGroups: SPLIT_MUSCLE_GROUPS.A,
           createdAt: now,
           updatedAt: now,
@@ -114,6 +122,70 @@ export async function ensureSeeded(db: FitnessDB): Promise<boolean> {
 
       await db.meta.put({ key: "seedVersion", value: SEED_VERSION });
       return true;
+    },
+  );
+}
+
+/**
+ * Ergänzt bestehende Installationen um später hinzugefügte Seed-Inhalte.
+ * Jede Migration läuft genau einmal (Flag in `meta`) und überschreibt keine
+ * Nutzeränderungen: Fehlende Einträge werden angelegt, vorhandene bleiben.
+ */
+export async function applyMigrations(db: FitnessDB): Promise<void> {
+  await db.transaction(
+    "rw",
+    [db.meta, db.devices, db.exercises, db.templates, db.templateSlots],
+    async () => {
+      if (await db.meta.get(MIGRATION_SHOULDERS)) return;
+      const now = nowIso();
+      const seedDevice = SEED_DEVICES.find((d) => d.id === "dev-shoulder-press")!;
+      const seedExercise = SEED_EXERCISES.find((e) => e.id === "ex-shoulder-press")!;
+
+      if (!(await db.devices.get(seedDevice.id))) {
+        await db.devices.add({
+          id: seedDevice.id,
+          brand: "Cybex",
+          name: seedDevice.name,
+          muscleGroup: seedDevice.muscleGroup,
+          loadingType: seedDevice.loadingType,
+          description: seedDevice.description,
+          illustrationKey: seedDevice.illustrationKey,
+          image: { kind: "illustration" },
+          isSeed: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      if (!(await db.exercises.get(seedExercise.id))) {
+        await db.exercises.add({ ...seedExercise, isSeed: true, createdAt: now, updatedAt: now });
+      }
+
+      const tplA = await db.templates.get(TEMPLATE_A_ID);
+      if (tplA) {
+        if (!tplA.allowedMuscleGroups.includes("schultern")) {
+          await db.templates.update(TEMPLATE_A_ID, {
+            allowedMuscleGroups: SPLIT_MUSCLE_GROUPS.A,
+            description: TEMPLATE_A_DESCRIPTION,
+            updatedAt: now,
+          });
+        }
+        const slots = await db.templateSlots.where("templateId").equals(TEMPLATE_A_ID).sortBy("order");
+        if (!slots.some((s) => s.exerciseId === seedExercise.id)) {
+          const [newSlot] = slotsFor(
+            TEMPLATE_A_ID,
+            [{ id: (await db.templateSlots.get("slot-a-9")) ? newId() : "slot-a-9", exerciseId: seedExercise.id }],
+            now,
+          );
+          // Hinter Reverse Butterfly einsortieren, sonst ans Ende.
+          const anchor = slots.findIndex((s) => s.exerciseId === "ex-reverse-butterfly");
+          const insertAt = anchor >= 0 ? anchor + 1 : slots.length;
+          const ordered = [...slots.slice(0, insertAt), newSlot, ...slots.slice(insertAt)];
+          await db.templateSlots.add(newSlot);
+          await Promise.all(ordered.map((s, i) => db.templateSlots.update(s.id, { order: i })));
+        }
+      }
+
+      await db.meta.put({ key: MIGRATION_SHOULDERS, value: now });
     },
   );
 }
