@@ -29,8 +29,11 @@ export function DeviceImage({
   device,
   size = "card",
   className,
+  illustrationKey,
 }: {
   device: Pick<Device, "name" | "image" | "illustrationKey"> | undefined;
+  /** Übungsspezifische Illustration (z. B. Bewegungsrichtung an Kombimaschinen). */
+  illustrationKey?: string;
   size?: "thumb" | "card" | "hero";
   className?: string;
 }) {
@@ -81,7 +84,7 @@ export function DeviceImage({
   return (
     <div className={box}>
       <DeviceIllustration
-        illustrationKey={device.illustrationKey}
+        illustrationKey={illustrationKey ?? device.illustrationKey}
         title={device.name}
         className={size === "thumb" ? "size-14" : "h-4/5 w-4/5"}
       />

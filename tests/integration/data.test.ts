@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { freshRepos, logSet, sessionExerciseFor } from "../helpers";
-import { ensureSeeded, MIGRATION_HIP, MIGRATION_SHOULDERS, TEMPLATE_A_ID, TEMPLATE_B_ID } from "@/data/seed/seed";
+import { ensureSeeded, MIGRATION_HIP, MIGRATION_HIP_LABELS, MIGRATION_SHOULDERS, TEMPLATE_A_ID, TEMPLATE_B_ID } from "@/data/seed/seed";
 import { SEED_DEVICES } from "@/data/seed/seedData";
 import { ActiveSessionExistsError, SetsWouldBeLostError } from "@/data/repositories/sessions";
 import { computeVolume } from "@/domain/metrics";
@@ -620,5 +620,86 @@ describe("Adduktoren / Abduktoren (Kombimaschine)", () => {
       "ex-crunch",
     ]);
     expect((await r.templates.slots(TEMPLATE_B_ID)).map((x) => x.order)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+});
+
+describe("Korrektur: Sätze zwischen Übungen tauschen", () => {
+  async function legSession(r: Awaited<ReturnType<typeof freshRepos>>) {
+    const s = await r.sessions.start(TEMPLATE_B_ID);
+    const stack = (await r.sessions.exercises(s.id))[0];
+    const plates = await r.sessions.switchExercise(stack.id, "ex-leg-press-plates", "add");
+    // Verwechselt: Scheibenwerte beim Block, Blockwerte bei den Scheiben
+    await logSet(r, stack.id, 0, 80, 12);
+    await logSet(r, stack.id, 1, 80, 10);
+    const pSet = (await r.db.sets.where("sessionExerciseId").equals(plates.id).sortBy("index"))[0];
+    await r.sessions.updateSet(pSet.id, {
+      weightKg: 120,
+      reps: 10,
+      completed: true,
+      weightBasis: { mode: "plates_total", platesKg: 120, includesStartWeight: false },
+    });
+    return { s, stack, plates };
+  }
+
+  it("tauscht Werte vollständig und passt die Berechnungsgrundlage an das Gerät an", async () => {
+    const r = await freshRepos();
+    const { s, stack, plates } = await legSession(r);
+    await r.sessions.complete(s.id);
+    await r.sessions.swapSets(stack.id, plates.id);
+
+    const stackSets = await r.db.sets.where("sessionExerciseId").equals(stack.id).sortBy("index");
+    const plateSets = await r.db.sets.where("sessionExerciseId").equals(plates.id).sortBy("index");
+    expect(stackSets.filter((x) => x.completed).map((x) => [x.weightKg, x.reps])).toEqual([[120, 10]]);
+    expect(stackSets.every((x) => x.weightBasis.mode === "block" && x.deviceId === "dev-leg-press-stack")).toBe(true);
+    expect(plateSets.filter((x) => x.completed).map((x) => [x.weightKg, x.reps])).toEqual([
+      [80, 12],
+      [80, 10],
+    ]);
+    expect(plateSets.every((x) => x.deviceId === "dev-leg-press-plates" && x.exerciseId === "ex-leg-press-plates")).toBe(true);
+    expect(plateSets[0].weightBasis).toEqual({ mode: "plates_total", platesKg: 80, includesStartWeight: false });
+    expect((await r.db.sessionExercises.get(plates.id))!.weightMode).toBe("plates_total");
+    expect((await r.db.sessionExercises.get(stack.id))!.weightMode).toBe("block");
+    expect((await r.sessions.get(s.id))!.editedAt).toBeTruthy();
+
+    expect((await r.progress.seriesForExercise("ex-leg-press-stack"))[0].points[0].topWeight).toBe(120);
+    expect((await r.progress.seriesForExercise("ex-leg-press-plates"))[0].points[0].topWeight).toBe(80);
+    const s2 = await r.sessions.start(TEMPLATE_B_ID);
+    expect((await r.sessions.lastPerformance("ex-leg-press-plates", "dev-leg-press-plates", s2.id))!.sets[0].weightKg).toBe(80);
+  });
+
+  it("lässt andere Einheiten unberührt und verbietet Tausch über Einheiten hinweg", async () => {
+    const r = await freshRepos();
+    const first = await legSession(r);
+    await r.sessions.complete(first.s.id);
+    const other = await legSession(r);
+    await r.sessions.complete(other.s.id);
+    const before = JSON.stringify(await r.sessions.sets(other.s.id));
+    await r.sessions.swapSets(first.stack.id, first.plates.id);
+    expect(JSON.stringify(await r.sessions.sets(other.s.id))).toBe(before);
+    await expect(r.sessions.swapSets(first.stack.id, other.plates.id)).rejects.toThrow();
+  });
+});
+
+describe("Adduktoren/Abduktoren unterscheidbar", () => {
+  it("haben eigene Illustrationen und eindeutige Namen", async () => {
+    const r = await freshRepos();
+    const add = (await r.exercises.get("ex-hip-adduction"))!;
+    const abd = (await r.exercises.get("ex-hip-abduction"))!;
+    expect(add.illustrationKey).toBe("hip-adduction");
+    expect(abd.illustrationKey).toBe("hip-abduction");
+    expect(add.name).toContain("zusammen");
+    expect(abd.name).toContain("auseinander");
+  });
+
+  it("Migration benennt nur unveränderte Namen um", async () => {
+    const r = await freshRepos();
+    await r.db.exercises.update("ex-hip-adduction", { name: "Adduktoren", illustrationKey: undefined });
+    await r.db.exercises.update("ex-hip-abduction", { name: "Meine Abduktion", illustrationKey: undefined });
+    await r.db.meta.delete(MIGRATION_HIP_LABELS);
+    await ensureSeeded(r.db);
+    await ensureSeeded(r.db);
+    expect((await r.exercises.get("ex-hip-adduction"))!.name).toBe("Adduktoren – Beine zusammen");
+    expect((await r.exercises.get("ex-hip-abduction"))!.name).toBe("Meine Abduktion");
+    expect((await r.exercises.get("ex-hip-abduction"))!.illustrationKey).toBe("hip-abduction");
   });
 });

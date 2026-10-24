@@ -124,3 +124,34 @@ test("Backup exportieren und wieder importieren", async ({ page }) => {
   await page.getByTestId("backup-input").setInputFiles({ name: "x.json", mimeType: "application/json", buffer: Buffer.from('{"app":"falsch"}') });
   await expect(page.getByText(/Import abgelehnt/)).toBeVisible();
 });
+
+test("Verwechselte Beinpresse-Werte im Verlauf tauschen", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Training B/ }).click();
+  const stack = page.locator("article").first();
+  await stack.getByLabel("Gewicht (kg)").first().fill("80");
+  await stack.getByLabel("Wdh.").first().fill("12");
+  await stack.getByRole("button", { name: "Satz 1 abschliessen" }).click();
+  await stack.getByRole("radio", { name: "Gewichtsscheiben" }).click();
+  await page.getByRole("button", { name: /zusätzliche Übung anlegen/ }).click();
+  const plates = page.locator("article", { has: page.getByRole("heading", { name: "Beinpresse – Gewichtsscheiben" }) });
+  await plates.getByLabel("Scheibengewicht gesamt (kg)").first().fill("120");
+  await plates.getByLabel("Wdh.").first().fill("10");
+  await plates.getByRole("button", { name: "Satz 1 abschliessen" }).click();
+  await page.getByRole("button", { name: /Training abschliessen/ }).click();
+  await page.getByRole("button", { name: "Abschliessen", exact: true }).click();
+  await expect(page).toHaveURL(/\/verlauf\/detail\//);
+
+  await page.getByRole("button", { name: "Korrigieren" }).click();
+  await page.getByRole("button", { name: "Optionen für Beinpresse – Gewichtsblock" }).click();
+  await page.getByRole("button", { name: /Sätze mit anderer Übung tauschen/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: /Beinpresse – Gewichtsscheiben/ }).click();
+  await page.getByRole("button", { name: "Sätze tauschen" }).click();
+  await page.getByRole("button", { name: "Korrektur beenden" }).click();
+
+  const stackCard = page.locator("div.rounded-2xl", { has: page.getByRole("heading", { name: "Beinpresse – Gewichtsblock" }) });
+  await expect(stackCard.getByRole("cell", { name: "120 kg" })).toBeVisible();
+  const platesCard = page.locator("div.rounded-2xl", { has: page.getByRole("heading", { name: "Beinpresse – Gewichtsscheiben" }) });
+  await expect(platesCard.getByRole("cell", { name: /^80 kg/ })).toBeVisible();
+  await expect(page.getByText(/Nachträglich korrigiert/)).toBeVisible();
+});

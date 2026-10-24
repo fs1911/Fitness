@@ -16,6 +16,13 @@ export const TEMPLATE_B_ID = "tpl-b";
 const TEMPLATE_A_DESCRIPTION = "Brust, Rücken, Schultern, Bizeps, Trizeps, Bauch";
 export const MIGRATION_SHOULDERS = "migration:shoulders-v1";
 export const MIGRATION_HIP = "migration:hip-add-abd-v1";
+export const MIGRATION_HIP_LABELS = "migration:hip-labels-v1";
+
+/** Frühere Seed-Namen → nur diese werden automatisch umbenannt. */
+const HIP_LABEL_UPDATES = [
+  { id: "ex-hip-adduction", oldName: "Adduktoren" },
+  { id: "ex-hip-abduction", oldName: "Abduktoren" },
+];
 
 function slotsFor(templateId: string, slots: SeedSlot[], now: string): TemplateSlot[] {
   return slots.map((s, i) => ({
@@ -78,6 +85,7 @@ async function seedInitial(db: FitnessDB): Promise<boolean> {
           muscleGroup: e.muscleGroup,
           deviceId: e.deviceId,
           description: e.description,
+          illustrationKey: e.illustrationKey,
           isSeed: true,
           createdAt: now,
           updatedAt: now,
@@ -167,6 +175,34 @@ export const SEED_ADDITIONS: SeedAddition[] = [
  * bewusst entfernte Übungen werden nicht erneut eingefügt.
  */
 export async function applyMigrations(db: FitnessDB): Promise<void> {
+  await applyAdditions(db);
+  await applyHipLabels(db);
+}
+
+/**
+ * Adduktoren/Abduktoren unterscheidbar machen: eigene Illustration mit
+ * Bewegungsrichtung und eindeutiger Name. Eigene Umbenennungen bleiben.
+ * Abgeschlossene Einheiten behalten ihren gespeicherten Snapshot-Namen.
+ */
+async function applyHipLabels(db: FitnessDB): Promise<void> {
+  await db.transaction("rw", db.meta, db.exercises, async () => {
+    if (await db.meta.get(MIGRATION_HIP_LABELS)) return;
+    const now = nowIso();
+    for (const { id, oldName } of HIP_LABEL_UPDATES) {
+      const ex = await db.exercises.get(id);
+      const seed = SEED_EXERCISES.find((e) => e.id === id)!;
+      if (!ex) continue;
+      await db.exercises.update(id, {
+        illustrationKey: ex.illustrationKey ?? seed.illustrationKey,
+        ...(ex.name === oldName ? { name: seed.name } : {}),
+        updatedAt: now,
+      });
+    }
+    await db.meta.put({ key: MIGRATION_HIP_LABELS, value: now });
+  });
+}
+
+async function applyAdditions(db: FitnessDB): Promise<void> {
   for (const add of SEED_ADDITIONS) {
     await db.transaction(
       "rw",

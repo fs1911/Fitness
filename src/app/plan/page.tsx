@@ -71,7 +71,7 @@ function TemplateEditor({ template }: { template: WorkoutTemplate }) {
               <li key={slot.id}>
                 <Card className={slot.active ? "p-3" : "p-3 opacity-60"}>
                   <div className="flex gap-3">
-                    <DeviceImage device={device} size="thumb" />
+                    <DeviceImage device={device} illustrationKey={ex?.illustrationKey} size="thumb" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-muted">
                         {i + 1}. {slot.label ?? (ex ? MUSCLE_GROUP_LABELS[ex.muscleGroup] : "")}

@@ -183,7 +183,7 @@ function Progress() {
       ) : (
         <>
           <Card className="mt-4 flex items-center gap-3 p-3">
-            <DeviceImage device={device} size="thumb" />
+            <DeviceImage device={device} illustrationKey={exercise?.illustrationKey} size="thumb" />
             <div className="min-w-0 text-sm">
               <p className="font-semibold">{exercise?.name}</p>
               <p className="truncate text-muted">{device?.name}</p>
