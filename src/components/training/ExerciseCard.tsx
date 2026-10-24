@@ -2,6 +2,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   ArrowDown,
+  ArrowLeftRight,
   ArrowUp,
   History,
   MoreHorizontal,
@@ -39,6 +40,12 @@ import { cn } from "@/lib/utils";
 import { ExercisePicker } from "./ExercisePicker";
 import { SetRow } from "./SetRow";
 
+/** Bewegungsrichtung als Text + Pfeilsymbol (nicht nur über Farbe/Bild). */
+const DIRECTION_HINTS: Record<string, string> = {
+  "hip-adduction": "→ ← Beine zusammen",
+  "hip-abduction": "← → Beine auseinander",
+};
+
 type PendingSwitch = { exerciseId: string; reason: "variant" | "replace" };
 
 export function ExerciseCard({
@@ -52,6 +59,7 @@ export function ExerciseCard({
   isFirst,
   isLast,
   onSetCompleted,
+  siblings = [],
 }: {
   se: SessionExercise;
   sets: SetEntry[];
@@ -63,6 +71,8 @@ export function ExerciseCard({
   isFirst: boolean;
   isLast: boolean;
   onSetCompleted?: (se: SessionExercise) => void;
+  /** Andere Übungen derselben Einheit (für „Sätze tauschen“), inkl. Anzahl erfasster Sätze. */
+  siblings?: { se: SessionExercise; setCount: number }[];
 }) {
   const live = mode === "live";
   const last = useLiveQuery(
@@ -80,6 +90,8 @@ export function ExerciseCard({
   const [pickerOpen, setPickerOpen] = React.useState<"replace" | "add-variant" | null>(null);
   const [pending, setPending] = React.useState<PendingSwitch | null>(null);
   const [removeOpen, setRemoveOpen] = React.useState(false);
+  const [swapOpen, setSwapOpen] = React.useState(false);
+  const [swapTarget, setSwapTarget] = React.useState<{ se: SessionExercise; setCount: number } | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [info, setInfo] = React.useState<string | null>(null);
 
@@ -89,6 +101,7 @@ export function ExerciseCard({
   const completedCount = sorted.filter((s) => s.completed).length;
   const lastCompleted = last?.sets.filter((s) => s.completed) ?? [];
   const isPlates = se.snapshot.loadingType === "plate_loaded";
+  const direction = DIRECTION_HINTS[exercises.get(se.exerciseId)?.illustrationKey ?? ""];
 
   async function requestSwitch(exerciseId: string, reason: PendingSwitch["reason"]) {
     if (!hasData) {
@@ -119,7 +132,12 @@ export function ExerciseCard({
       className={cn("rounded-2xl border border-border bg-surface p-3 sm:p-4", skipped && "opacity-70")}
     >
       <header className="flex gap-3">
-        <DeviceImage device={device} size="thumb" className="size-20 sm:size-24" />
+        <DeviceImage
+          device={device}
+          illustrationKey={exercises.get(se.exerciseId)?.illustrationKey}
+          size="thumb"
+          className="size-20 sm:size-24"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -142,6 +160,7 @@ export function ExerciseCard({
               {se.snapshot.targetRepsMax !== se.snapshot.targetRepsMin ? `–${se.snapshot.targetRepsMax}` : ""}
             </Badge>
             {isPlates && <Badge tone="warning">Scheiben</Badge>}
+            {direction && <Badge tone="accent">{direction}</Badge>}
             {skipped && <Badge tone="warning">Übersprungen</Badge>}
             {!skipped && completedCount > 0 && (
               <Badge tone="success">
@@ -312,6 +331,11 @@ export function ExerciseCard({
               <ArrowDown aria-hidden /> Nach unten
             </Button>
           </div>
+          {siblings.length > 0 && (
+            <Button onClick={() => (setMenuOpen(false), setSwapOpen(true))}>
+              <ArrowLeftRight aria-hidden /> Sätze mit anderer Übung tauschen …
+            </Button>
+          )}
           <Button variant="danger-outline" onClick={() => (setMenuOpen(false), setRemoveOpen(true))}>
             <Trash2 aria-hidden /> Aus dieser Einheit entfernen
           </Button>
@@ -384,6 +408,58 @@ export function ExerciseCard({
           <Button onClick={() => setPending(null)}>Abbrechen</Button>
         </div>
       </Dialog>
+
+      <Dialog
+        open={swapOpen}
+        onOpenChange={setSwapOpen}
+        title="Sätze tauschen mit …"
+        description={`Korrektur, falls Werte bei der falschen Übung erfasst wurden. Alle Sätze von „${title}“ wechseln zur gewählten Übung und umgekehrt.`}
+      >
+        <ul className="grid gap-2">
+          {[...siblings]
+            .sort(
+              (x, y) =>
+                Number(se.alternativeExerciseIds.includes(y.se.exerciseId)) -
+                  Number(se.alternativeExerciseIds.includes(x.se.exerciseId)) ||
+                Number(y.se.snapshot.muscleGroup === se.snapshot.muscleGroup) -
+                  Number(x.se.snapshot.muscleGroup === se.snapshot.muscleGroup) ||
+                x.se.order - y.se.order,
+            )
+            .map((sib) => (
+              <li key={sib.se.id}>
+                <Button
+                  className="h-auto min-h-12 w-full justify-between py-2 text-left"
+                  onClick={() => {
+                    setSwapOpen(false);
+                    setSwapTarget(sib);
+                  }}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate">{sib.se.snapshot.exerciseName}</span>
+                    <span className="block truncate text-xs text-muted">{sib.se.snapshot.deviceName}</span>
+                  </span>
+                  <span className="shrink-0 text-sm text-muted">{sib.setCount} Sätze</span>
+                </Button>
+              </li>
+            ))}
+        </ul>
+      </Dialog>
+
+      <ConfirmDialog
+        open={swapTarget !== null}
+        onOpenChange={(o) => !o && setSwapTarget(null)}
+        title="Sätze tauschen?"
+        description={
+          swapTarget
+            ? `${sorted.filter(hasSetData).length} Satz/Sätze von „${title}“ ↔ ${swapTarget.setCount} Satz/Sätze von „${swapTarget.se.snapshot.exerciseName}“. Gewicht und Wiederholungen bleiben; die Berechnungsgrundlage wird an das jeweilige Gerät angepasst (Gewichtsblock bzw. aufgelegtes Scheibengewicht ohne Startgewicht). Fortschritt und Bestleistungen werden neu berechnet.`
+            : ""
+        }
+        confirmLabel="Sätze tauschen"
+        onConfirm={async () => {
+          if (swapTarget) await repos.sessions.swapSets(se.id, swapTarget.se.id);
+          setSwapTarget(null);
+        }}
+      />
 
       <ConfirmDialog
         open={removeOpen}

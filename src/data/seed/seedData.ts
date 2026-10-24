@@ -17,6 +17,7 @@ export interface SeedDevice {
 export interface SeedExercise {
   id: string;
   name: string;
+  illustrationKey?: string;
   muscleGroup: MuscleGroup;
   deviceId: string;
   description?: string;
@@ -197,14 +198,16 @@ export const SEED_EXERCISES: SeedExercise[] = [
   },
   {
     id: "ex-hip-adduction",
-    name: "Adduktoren",
+    name: "Adduktoren – Beine zusammen",
+    illustrationKey: "hip-adduction",
     muscleGroup: "beine",
     deviceId: "dev-hip-add-abd",
     description: "Beine gegen den Widerstand zusammendrücken.",
   },
   {
     id: "ex-hip-abduction",
-    name: "Abduktoren",
+    name: "Abduktoren – Beine auseinander",
+    illustrationKey: "hip-abduction",
     muscleGroup: "beine",
     deviceId: "dev-hip-add-abd",
     description: "Beine gegen den Widerstand auseinanderdrücken.",

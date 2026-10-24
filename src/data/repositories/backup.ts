@@ -55,6 +55,7 @@ const exercise = z.object({
   deviceId: z.string().min(1),
   variantLabel: z.string().optional(),
   description: z.string().optional(),
+  illustrationKey: z.string().optional(),
   isSeed: z.boolean(),
   archivedAt: iso.optional(),
   createdAt: iso,

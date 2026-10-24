@@ -187,13 +187,42 @@ const drawings: Record<string, React.ReactNode> = {
     <>
       <Floor />
       <Stack />
-      <Seat x={30} y={80} w={40} />
-      <rect x={30} y={44} width={8} height={36} rx={3} />
-      <rect x={70} y={62} width={7} height={22} rx={3} />
-      <rect x={92} y={62} width={7} height={22} rx={3} />
-      <path d="M73 84 V96 M96 84 V96" />
-      <Arrow d="M64 54 H52" />
-      <Arrow d="M104 54 H116" />
+      {/* Frontansicht: Sitz, Rückenlehne, zwei Beinpolster */}
+      <rect x={44} y={30} width={36} height={40} rx={4} />
+      <rect x={38} y={70} width={48} height={8} rx={3} />
+      <line x1={62} x2={62} y1={78} y2={110} />
+      <rect x={36} y={74} width={7} height={24} rx={3} />
+      <rect x={81} y={74} width={7} height={24} rx={3} />
+    </>
+  ),
+  // Adduktoren: Beine gegen Widerstand ZUSAMMEN – Pfeile zeigen zur Mitte
+  "hip-adduction": (
+    <>
+      <Floor />
+      <Stack />
+      {/* Frontansicht: Sitz, Rückenlehne, zwei Beinpolster */}
+      <rect x={44} y={30} width={36} height={40} rx={4} />
+      <rect x={38} y={70} width={48} height={8} rx={3} />
+      <line x1={62} x2={62} y1={78} y2={110} />
+      <rect x={30} y={74} width={7} height={24} rx={3} />
+      <rect x={87} y={74} width={7} height={24} rx={3} />
+      <Arrow d="M10 86 H26" />
+      <Arrow d="M114 86 H98" />
+    </>
+  ),
+  // Abduktoren: Beine gegen Widerstand AUSEINANDER – Pfeile zeigen nach aussen
+  "hip-abduction": (
+    <>
+      <Floor />
+      <Stack />
+      {/* Frontansicht: Sitz, Rückenlehne, zwei Beinpolster */}
+      <rect x={44} y={30} width={36} height={40} rx={4} />
+      <rect x={38} y={70} width={48} height={8} rx={3} />
+      <line x1={62} x2={62} y1={78} y2={110} />
+      <rect x={48} y={74} width={7} height={24} rx={3} />
+      <rect x={69} y={74} width={7} height={24} rx={3} />
+      <Arrow d="M44 86 H18" />
+      <Arrow d="M80 86 H106" />
     </>
   ),
   calf: (

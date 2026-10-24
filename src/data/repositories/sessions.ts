@@ -464,6 +464,52 @@ export function createSessionsRepository(db: FitnessDB) {
       });
     },
 
+    /**
+     * Korrektur: tauscht alle Sätze zweier Übungen derselben Einheit
+     * (z. B. Werte versehentlich bei der falschen Beinpresse-Variante erfasst).
+     * Zahlenwerte bleiben, die Berechnungsgrundlage wird an das Zielgerät angepasst.
+     */
+    async swapSets(seAId: string, seBId: string) {
+      if (seAId === seBId) return;
+      await db.transaction("rw", db.sets, db.sessionExercises, db.devices, db.sessions, async () => {
+        const [a, b] = await db.sessionExercises.bulkGet([seAId, seBId]);
+        if (!a || !b) throw new Error("Übung nicht gefunden.");
+        if (a.sessionId !== b.sessionId) throw new Error("Sätze können nur innerhalb derselben Einheit getauscht werden.");
+        const [devA, devB] = await db.devices.bulkGet([a.deviceId, b.deviceId]);
+        if (!devA || !devB) throw new Error("Gerät nicht gefunden.");
+        const setsA = await db.sets.where("sessionExerciseId").equals(a.id).sortBy("index");
+        const setsB = await db.sets.where("sessionExerciseId").equals(b.id).sortBy("index");
+        const now = nowIso();
+
+        const moveTo = (s: SetEntry, target: SessionExercise, device: Device, index: number): SetEntry => {
+          let weightBasis: WeightBasis = s.weightBasis;
+          if (device.loadingType === "selectorized") {
+            weightBasis = { mode: "block" };
+          } else if (s.weightBasis.mode === "block") {
+            // Der eingetragene Wert war das aufgelegte Scheibengewicht – kein Startgewicht nachträglich erfinden.
+            weightBasis = { mode: "plates_total", platesKg: s.weightKg, includesStartWeight: false };
+          }
+          return {
+            ...s,
+            sessionExerciseId: target.id,
+            exerciseId: target.exerciseId,
+            deviceId: target.deviceId,
+            index,
+            weightBasis,
+            updatedAt: now,
+          };
+        };
+
+        await db.sets.bulkPut([
+          ...setsA.map((s, i) => moveTo(s, b, devB, i)),
+          ...setsB.map((s, i) => moveTo(s, a, devA, i)),
+        ]);
+        await db.sessionExercises.update(a.id, { weightMode: defaultWeightMode(devA), updatedAt: now });
+        await db.sessionExercises.update(b.id, { weightMode: defaultWeightMode(devB), updatedAt: now });
+        await touchSession(a.sessionId);
+      });
+    },
+
     // ---------- Übungen innerhalb der Einheit ----------
 
     async setExerciseStatus(sessionExerciseId: string, status: SessionExercise["status"]) {

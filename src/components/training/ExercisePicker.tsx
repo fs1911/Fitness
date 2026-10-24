@@ -66,7 +66,7 @@ export function ExercisePicker({
                         onOpenChange(false);
                       }}
                     >
-                      <DeviceImage device={d} size="thumb" />
+                      <DeviceImage device={d} illustrationKey={e.illustrationKey} size="thumb" />
                       <span className="min-w-0">
                         <span className="block font-medium">
                           {e.name}

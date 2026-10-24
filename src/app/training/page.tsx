@@ -13,7 +13,7 @@ import { ExerciseCard } from "@/components/training/ExerciseCard";
 import { ExercisePicker } from "@/components/training/ExercisePicker";
 import { RestTimer } from "@/components/training/RestTimer";
 import { db, repos } from "@/data";
-import { sessionElapsedMs } from "@/data/repositories/sessions";
+import { hasSetData, sessionElapsedMs } from "@/data/repositories/sessions";
 import { formatClock, formatTime } from "@/domain/format";
 import { SPLIT_MUSCLE_GROUPS, type SessionExercise, type WorkoutSession } from "@/domain/types";
 import { useActiveSession, useDeviceMap, useExerciseMap, useNow, useSettings } from "@/hooks/useData";
@@ -147,6 +147,12 @@ function ActiveTraining({ session }: { session: WorkoutSession }) {
             mode="live"
             isFirst={i === 0}
             isLast={i === exercisesList.length - 1}
+                siblings={exercisesList
+                  .filter((x) => x.id !== se.id)
+                  .map((x) => ({
+                    se: x,
+                    setCount: sets.filter((st) => st.sessionExerciseId === x.id && hasSetData(st)).length,
+                  }))}
             onSetCompleted={onSetCompleted}
           />
         ))}

@@ -12,7 +12,7 @@ import { Badge, Card, EmptyState } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm";
 import { Label, Textarea } from "@/components/ui/input";
 import { db, repos } from "@/data";
-import { sessionElapsedMs } from "@/data/repositories/sessions";
+import { hasSetData, sessionElapsedMs } from "@/data/repositories/sessions";
 import { formatDate, formatDateTime, formatDuration, formatKg, formatTime } from "@/domain/format";
 import { computeVolume } from "@/domain/metrics";
 import { MUSCLE_GROUP_LABELS, SPLIT_MUSCLE_GROUPS, type WorkoutSession } from "@/domain/types";
@@ -142,6 +142,12 @@ function SessionDetail({ session }: { session: WorkoutSession }) {
                 mode="edit"
                 isFirst={i === 0}
                 isLast={i === ses.length - 1}
+                siblings={ses
+                  .filter((x) => x.id !== se.id)
+                  .map((x) => ({
+                    se: x,
+                    setCount: sets.filter((st) => st.sessionExerciseId === x.id && hasSetData(st)).length,
+                  }))}
               />
             );
           }
@@ -149,7 +155,7 @@ function SessionDetail({ session }: { session: WorkoutSession }) {
           return (
             <Card key={se.id}>
               <div className="flex gap-3">
-                <DeviceImage device={device} size="thumb" />
+                <DeviceImage device={device} illustrationKey={exercises.get(se.exerciseId)?.illustrationKey} size="thumb" />
                 <div className="min-w-0">
                   <h2 className="font-semibold">
                     {se.snapshot.exerciseName}

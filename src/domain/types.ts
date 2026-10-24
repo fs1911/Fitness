@@ -101,6 +101,8 @@ export interface Exercise {
   /** Ausführungsvariante, z. B. „sitzend“ oder „liegend“. */
   variantLabel?: string;
   description?: string;
+  /** Übungsspezifische Illustration, z. B. bei Kombimaschinen (Bewegungsrichtung). */
+  illustrationKey?: string;
   isSeed: boolean;
   archivedAt?: ISODateString;
   createdAt: ISODateString;
