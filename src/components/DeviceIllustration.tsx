@@ -64,7 +64,8 @@ const drawings: Record<string, React.ReactNode> = {
       <Arrow d="M76 28 H104" />
     </>
   ),
-  "lat-pulldown": (
+  // Klassischer Latzug: Seilzug von oben mit breiter Stange
+  "lat-cable": (
     <>
       <Floor />
       <Stack />
@@ -74,6 +75,20 @@ const drawings: Record<string, React.ReactNode> = {
       <Seat x={34} y={84} />
       <rect x={34} y={66} width={24} height={6} rx={3} />
       <Arrow d="M84 30 V60" />
+    </>
+  ),
+  // Pulldown-Maschine: Hebelarm mit Drehpunkt oben und festem Griff
+  "lat-pulldown": (
+    <>
+      <Floor />
+      <Stack />
+      <path d="M110 110 V14 H76" />
+      <circle cx={76} cy={18} r={4} />
+      <path d="M76 18 L40 30 L32 46" />
+      <path d="M26 46 H38" />
+      <Seat x={40} y={84} />
+      <rect x={40} y={66} width={24} height={6} rx={3} />
+      <Arrow d="M20 30 Q14 48 26 62" />
     </>
   ),
   row: (

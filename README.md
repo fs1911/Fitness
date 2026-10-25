@@ -62,7 +62,7 @@ Die UI greift ausschliesslich über `repos` (`src/data/index.ts`) auf Daten zu. 
 - `deviceImages` – hochgeladene Fotos als `ArrayBuffer` (persistent, im Backup enthalten).
 - `exercises` – Übung mit genau einem zugeordneten Gerät. Mehrere Übungen können dasselbe Gerät nutzen (z. B. Butterfly und Reverse Butterfly an einer Kombimaschine).
 - `exerciseSettings` – persönliche Einstellungen je **Übung + Gerät** (Sitzhöhe, Startposition, Rückenlehne, Griff, Notiz).
-- `templates` / `templateSlots` – Trainingsvorlagen und Übungspositionen mit Zielsätzen, Wiederholungsbereich, optionaler Pause und alternativen Übungen (Beinpresse Block ↔ Scheiben).
+- `templates` / `templateSlots` – Trainingsvorlagen und Übungspositionen mit Zielsätzen, Wiederholungsbereich, optionaler Pause und alternativen Übungen (Beinpresse Block ↔ Scheiben, Latzug Pulldown-Maschine ↔ klassisch am Kabelzug).
 - `sessions` – Trainingseinheit (läuft / pausiert / abgeschlossen / abgebrochen).
 - `sessionExercises` – tatsächlich durchgeführte Übung mit dem **tatsächlich verwendeten Gerät** und einem **Snapshot** (Namen, Ziele, Einstellungen). Spätere Änderungen an Vorlagen, Übungen oder Geräten verändern die Historie nicht.
 - `sets` – Satz mit Gewicht, Wiederholungen, Status, Aufwärm-Kennzeichen, Notiz und der **pro Satz gespeicherten Berechnungsgrundlage** (`weightBasis`: Gewichtsblock, Scheibengewicht gesamt oder Scheibenrechner mit Beladung links/rechts, inkl. ob ein Startgewicht eingerechnet wurde).
@@ -80,7 +80,7 @@ Die UI greift ausschliesslich über `repos` (`src/data/index.ts`) auf Daten zu. 
 
 ## Echte Cybex-Geräte und Bilder ergänzen
 
-Die 15 vorbereiteten Geräte sind **Gerätekategorien**, keine verifizierten Modelle. Sie tragen bewusst keine Modell- oder Seriennummern und zeigen „Konkretes Modell noch nicht hinterlegt“. Die Abbildungen sind eigene, schematische Strichillustrationen (je Gerät unterschiedlich) und als „Illustration – kein Produktfoto“ gekennzeichnet.
+Die 16 vorbereiteten Geräte sind **Gerätekategorien**, keine verifizierten Modelle. Sie tragen bewusst keine Modell- oder Seriennummern und zeigen „Konkretes Modell noch nicht hinterlegt“. Die Abbildungen sind eigene, schematische Strichillustrationen (je Gerät unterschiedlich) und als „Illustration – kein Produktfoto“ gekennzeichnet.
 
 1. **Geräte → Gerät antippen.** Unter „Modell“ und „Serie“ die Bezeichnung eintragen, die tatsächlich am Gerät im Studio steht.
 2. **Eigenes Foto:** „Eigenes Foto“ wählen (Kamera oder Galerie). Das Bild wird verkleinert, lokal gespeichert und ist im Backup enthalten. Erneutes Hochladen ersetzt es.

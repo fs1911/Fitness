@@ -17,6 +17,7 @@ const TEMPLATE_A_DESCRIPTION = "Brust, Rücken, Schultern, Bizeps, Trizeps, Bauc
 export const MIGRATION_SHOULDERS = "migration:shoulders-v1";
 export const MIGRATION_HIP = "migration:hip-add-abd-v1";
 export const MIGRATION_HIP_LABELS = "migration:hip-labels-v1";
+export const MIGRATION_LAT_VARIANTS = "migration:lat-variants-v1";
 
 /** Frühere Seed-Namen → nur diese werden automatisch umbenannt. */
 const HIP_LABEL_UPDATES = [
@@ -177,6 +178,7 @@ export const SEED_ADDITIONS: SeedAddition[] = [
 export async function applyMigrations(db: FitnessDB): Promise<void> {
   await applyAdditions(db);
   await applyHipLabels(db);
+  await applyLatVariants(db);
 }
 
 /**
@@ -258,4 +260,71 @@ async function applyAdditions(db: FitnessDB): Promise<void> {
       },
     );
   }
+}
+
+/**
+ * Latzug: bestehender Eintrag wird zur Pulldown-Maschine (dort liegt die
+ * bisherige Historie), klassischer Latzug am Kabelzug kommt als Alternative
+ * an derselben Position dazu. Eigene Umbenennungen bleiben.
+ */
+async function applyLatVariants(db: FitnessDB): Promise<void> {
+  await db.transaction(
+    "rw",
+    [db.meta, db.devices, db.exercises, db.templateSlots],
+    async () => {
+      if (await db.meta.get(MIGRATION_LAT_VARIANTS)) return;
+      const now = nowIso();
+      const seedDev = (id: string) => SEED_DEVICES.find((d) => d.id === id)!;
+      const seedEx = (id: string) => SEED_EXERCISES.find((e) => e.id === id)!;
+
+      const cableDev = seedDev("dev-lat-cable");
+      if (!(await db.devices.get(cableDev.id))) {
+        await db.devices.add({
+          id: cableDev.id,
+          brand: "Cybex",
+          name: cableDev.name,
+          muscleGroup: cableDev.muscleGroup,
+          loadingType: cableDev.loadingType,
+          description: cableDev.description,
+          illustrationKey: cableDev.illustrationKey,
+          image: { kind: "illustration" },
+          isSeed: true,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+      if (!(await db.exercises.get("ex-lat-cable"))) {
+        await db.exercises.add({ ...seedEx("ex-lat-cable"), isSeed: true, createdAt: now, updatedAt: now });
+      }
+
+      const pullDev = await db.devices.get("dev-lat-pulldown");
+      if (pullDev?.name === "Cybex Latzug") {
+        const seed = seedDev("dev-lat-pulldown");
+        await db.devices.update(pullDev.id, {
+          name: seed.name,
+          ...(pullDev.description === "Latzug mit Gewichtsblock." ? { description: seed.description } : {}),
+          updatedAt: now,
+        });
+      }
+      const pullEx = await db.exercises.get("ex-lat-pulldown");
+      if (pullEx?.name === "Latzug") {
+        await db.exercises.update(pullEx.id, { name: seedEx("ex-lat-pulldown").name, updatedAt: now });
+      }
+
+      const slots = await db.templateSlots.where("templateId").equals(TEMPLATE_A_ID).toArray();
+      const latSlot = slots.find((x) => x.exerciseId === "ex-lat-pulldown" || x.exerciseId === "ex-lat-cable");
+      if (latSlot) {
+        const other = latSlot.exerciseId === "ex-lat-pulldown" ? "ex-lat-cable" : "ex-lat-pulldown";
+        await db.templateSlots.update(latSlot.id, {
+          alternativeExerciseIds: latSlot.alternativeExerciseIds.includes(other)
+            ? latSlot.alternativeExerciseIds
+            : [...latSlot.alternativeExerciseIds, other],
+          label: latSlot.label ?? "Latzug",
+          updatedAt: now,
+        });
+      }
+
+      await db.meta.put({ key: MIGRATION_LAT_VARIANTS, value: now });
+    },
+  );
 }
