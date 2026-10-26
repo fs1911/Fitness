@@ -124,7 +124,9 @@ export function ExerciseCard({
   const title = `${se.snapshot.exerciseName}${se.snapshot.variantLabel ? ` (${se.snapshot.variantLabel})` : ""}`;
   const variantOptions = [se.exerciseId, ...se.alternativeExerciseIds]
     .map((id) => exercises.get(id))
-    .filter((e): e is Exercise => !!e);
+    .filter((e): e is Exercise => !!e)
+    // Feste Reihenfolge, damit die Knöpfe beim Umschalten nicht die Position wechseln
+    .sort((a, b) => a.name.localeCompare(b.name, "de-CH"));
 
   return (
     <article
@@ -186,7 +188,8 @@ export function ExerciseCard({
             value={se.exerciseId}
             options={variantOptions.map((e) => ({
               value: e.id,
-              label: e.name.replace(/^Beinpresse – /, ""),
+              // Gemeinsamen Präfix („Beinpresse – “, „Latzug – “) für kurze Beschriftungen entfernen
+              label: e.name.includes(" – ") ? e.name.slice(e.name.indexOf(" – ") + 3) : e.name,
             }))}
             onChange={(id) => id !== se.exerciseId && requestSwitch(id, "variant")}
           />

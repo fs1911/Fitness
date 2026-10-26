@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { freshRepos, logSet, sessionExerciseFor } from "../helpers";
-import { ensureSeeded, MIGRATION_HIP, MIGRATION_HIP_LABELS, MIGRATION_SHOULDERS, TEMPLATE_A_ID, TEMPLATE_B_ID } from "@/data/seed/seed";
+import { ensureSeeded, MIGRATION_HIP, MIGRATION_HIP_LABELS, MIGRATION_LAT_VARIANTS, MIGRATION_SHOULDERS, TEMPLATE_A_ID, TEMPLATE_B_ID } from "@/data/seed/seed";
 import { SEED_DEVICES } from "@/data/seed/seedData";
 import { ActiveSessionExistsError, SetsWouldBeLostError } from "@/data/repositories/sessions";
 import { computeVolume } from "@/domain/metrics";
@@ -10,21 +10,21 @@ import { FitnessDB } from "@/data/db";
 import { createRepositories } from "@/data";
 
 describe("Vorbereitete Daten beim ersten Start", () => {
-  it("alle 15 vorbereiteten Geräte sind vorhanden, ohne erfundene Modellnummern", async () => {
+  it("alle 16 vorbereiteten Geräte sind vorhanden, ohne erfundene Modellnummern", async () => {
     const r = await freshRepos();
     const devices = await r.devices.list();
-    expect(devices).toHaveLength(15);
+    expect(devices).toHaveLength(16);
     for (const d of SEED_DEVICES) expect(devices.find((x) => x.id === d.id)).toBeTruthy();
     expect(devices.every((d) => d.brand === "Cybex" && d.model === undefined && d.series === undefined)).toBe(true);
     // Jedes Gerät hat eine eigene Illustration – nicht dasselbe Bild für alle.
-    expect(new Set(devices.map((d) => d.illustrationKey)).size).toBe(15);
+    expect(new Set(devices.map((d) => d.illustrationKey)).size).toBe(16);
   });
 
   it("Seed ist idempotent", async () => {
     const r = await freshRepos();
     const { ensureSeeded } = await import("@/data/seed/seed");
     expect(await ensureSeeded(r.db)).toBe(false);
-    expect(await r.db.devices.count()).toBe(15);
+    expect(await r.db.devices.count()).toBe(16);
   });
 
   it("alle Übungen in Training A und B besitzen eine gültige Gerätezuordnung und passende Muskelgruppen", async () => {
@@ -701,5 +701,71 @@ describe("Adduktoren/Abduktoren unterscheidbar", () => {
     expect((await r.exercises.get("ex-hip-adduction"))!.name).toBe("Adduktoren – Beine zusammen");
     expect((await r.exercises.get("ex-hip-abduction"))!.name).toBe("Meine Abduktion");
     expect((await r.exercises.get("ex-hip-abduction"))!.illustrationKey).toBe("hip-abduction");
+  });
+});
+
+describe("Latzug: Pulldown-Maschine oder klassisch am Kabelzug", () => {
+  it("Position in Training A bietet beide Varianten mit getrennten Geräten", async () => {
+    const r = await freshRepos();
+    const slot = (await r.templates.slots(TEMPLATE_A_ID)).find((x) => x.exerciseId === "ex-lat-pulldown")!;
+    expect(slot.alternativeExerciseIds).toEqual(["ex-lat-cable"]);
+    expect((await r.exercises.get("ex-lat-cable"))!.deviceId).toBe("dev-lat-cable");
+    const s = await r.sessions.start(TEMPLATE_A_ID, { slotChoices: { [slot.id]: "ex-lat-cable" } });
+    const se = await sessionExerciseFor(r, s.id, "ex-lat-cable");
+    expect(se.deviceId).toBe("dev-lat-cable");
+    expect(se.alternativeExerciseIds).toEqual(["ex-lat-pulldown"]);
+  });
+
+  it("führt getrennte Historien und wechselt während des Trainings", async () => {
+    const r = await freshRepos();
+    const s1 = await r.sessions.start(TEMPLATE_A_ID);
+    await logSet(r, (await sessionExerciseFor(r, s1.id, "ex-lat-pulldown")).id, 0, 60, 10);
+    await r.sessions.complete(s1.id);
+    const s2 = await r.sessions.start(TEMPLATE_A_ID);
+    const pull = await sessionExerciseFor(r, s2.id, "ex-lat-pulldown");
+    const cable = await r.sessions.switchExercise(pull.id, "ex-lat-cable", "replace");
+    await logSet(r, cable.id, 0, 45, 12);
+    await r.sessions.complete(s2.id);
+    expect((await r.progress.seriesForExercise("ex-lat-pulldown"))[0].points.map((p) => p.topWeight)).toEqual([60]);
+    expect((await r.progress.seriesForExercise("ex-lat-cable"))[0].points.map((p) => p.topWeight)).toEqual([45]);
+    const s3 = await r.sessions.start(TEMPLATE_A_ID);
+    expect((await r.sessions.lastPerformance("ex-lat-pulldown", "dev-lat-pulldown", s3.id))!.sets[0].weightKg).toBe(60);
+  });
+
+  async function oldInstall() {
+    const r = await freshRepos();
+    await r.db.exercises.delete("ex-lat-cable");
+    await r.db.devices.delete("dev-lat-cable");
+    await r.db.devices.update("dev-lat-pulldown", { name: "Cybex Latzug", description: "Latzug mit Gewichtsblock." });
+    await r.db.exercises.update("ex-lat-pulldown", { name: "Latzug" });
+    await r.db.templateSlots.update("slot-a-3", { alternativeExerciseIds: [], label: undefined });
+    await r.db.meta.delete(MIGRATION_LAT_VARIANTS);
+    return r;
+  }
+
+  it("Migration: bisherige Historie bleibt bei der Pulldown-Maschine, Alternative wird einmal ergänzt", async () => {
+    const r = await oldInstall();
+    const s = await r.sessions.start(TEMPLATE_A_ID);
+    await logSet(r, (await sessionExerciseFor(r, s.id, "ex-lat-pulldown")).id, 0, 55, 10);
+    await r.sessions.complete(s.id);
+    await ensureSeeded(r.db);
+    await ensureSeeded(r.db);
+    expect((await r.devices.get("dev-lat-pulldown"))!.name).toBe("Cybex Latzug – Pulldown-Maschine");
+    expect((await r.exercises.get("ex-lat-pulldown"))!.name).toBe("Latzug – Pulldown-Maschine");
+    expect(await r.devices.get("dev-lat-cable")).toBeTruthy();
+    const slot = (await r.db.templateSlots.get("slot-a-3"))!;
+    expect(slot.alternativeExerciseIds).toEqual(["ex-lat-cable"]);
+    expect(slot.label).toBe("Latzug");
+    expect((await r.progress.seriesForExercise("ex-lat-pulldown"))[0].points[0].topWeight).toBe(55);
+    expect((await r.sessions.exercises(s.id)).find((x) => x.exerciseId === "ex-lat-pulldown")!.snapshot.exerciseName).toBe("Latzug");
+  });
+
+  it("Migration: eigene Namen bleiben, entfernter Latzug wird nicht neu angelegt", async () => {
+    const r = await oldInstall();
+    await r.db.exercises.update("ex-lat-pulldown", { name: "Mein Latzug" });
+    await r.templates.removeSlot("slot-a-3");
+    await ensureSeeded(r.db);
+    expect((await r.exercises.get("ex-lat-pulldown"))!.name).toBe("Mein Latzug");
+    expect((await r.templates.slots(TEMPLATE_A_ID)).some((x) => x.exerciseId.startsWith("ex-lat-"))).toBe(false);
   });
 });

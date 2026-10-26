@@ -155,3 +155,14 @@ test("Verwechselte Beinpresse-Werte im Verlauf tauschen", async ({ page }) => {
   await expect(platesCard.getByRole("cell", { name: /^80 kg/ })).toBeVisible();
   await expect(page.getByText(/Nachträglich korrigiert/)).toBeVisible();
 });
+
+test("Latzug: zwischen Pulldown-Maschine und klassischem Kabelzug wählen", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /Training A/ }).click();
+  const card = page.locator("article", { has: page.getByRole("heading", { name: "Latzug – Pulldown-Maschine" }) });
+  await expect(card.getByText("Cybex Latzug – Pulldown-Maschine")).toBeVisible();
+  await card.getByRole("radio", { name: "klassisch (Kabelzug)" }).click();
+  const cable = page.locator("article", { has: page.getByRole("heading", { name: "Latzug – klassisch (Kabelzug)" }) });
+  await expect(cable.getByText("Cybex Latzug – Kabelzug (klassisch)")).toBeVisible();
+  await expect(cable.getByRole("radio", { name: "klassisch (Kabelzug)" })).toHaveAttribute("aria-checked", "true");
+});

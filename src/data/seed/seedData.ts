@@ -43,11 +43,19 @@ export const SEED_DEVICES: SeedDevice[] = [
   },
   {
     id: "dev-lat-pulldown",
-    name: "Cybex Latzug",
+    name: "Cybex Latzug – Pulldown-Maschine",
     muscleGroup: "ruecken",
     loadingType: "selectorized",
     illustrationKey: "lat-pulldown",
-    description: "Latzug mit Gewichtsblock.",
+    description: "Pulldown-Maschine mit festen Griffen bzw. Hebelarmen und Gewichtsblock.",
+  },
+  {
+    id: "dev-lat-cable",
+    name: "Cybex Latzug – Kabelzug (klassisch)",
+    muscleGroup: "ruecken",
+    loadingType: "selectorized",
+    illustrationKey: "lat-cable",
+    description: "Klassischer Latzug am Kabelzug mit Stange und Gewichtsblock.",
   },
   {
     id: "dev-row",
@@ -154,7 +162,18 @@ export const SEED_DEVICES: SeedDevice[] = [
 export const SEED_EXERCISES: SeedExercise[] = [
   { id: "ex-chest-press", name: "Brustpressen", muscleGroup: "brust", deviceId: "dev-chest-press" },
   { id: "ex-butterfly", name: "Butterfly", muscleGroup: "brust", deviceId: "dev-pec-fly" },
-  { id: "ex-lat-pulldown", name: "Latzug", muscleGroup: "ruecken", deviceId: "dev-lat-pulldown" },
+  {
+    id: "ex-lat-pulldown",
+    name: "Latzug – Pulldown-Maschine",
+    muscleGroup: "ruecken",
+    deviceId: "dev-lat-pulldown",
+  },
+  {
+    id: "ex-lat-cable",
+    name: "Latzug – klassisch (Kabelzug)",
+    muscleGroup: "ruecken",
+    deviceId: "dev-lat-cable",
+  },
   { id: "ex-row", name: "Rudern", muscleGroup: "ruecken", deviceId: "dev-row" },
   {
     id: "ex-reverse-butterfly",
@@ -225,7 +244,12 @@ export interface SeedSlot {
 export const SEED_TEMPLATE_A_SLOTS: SeedSlot[] = [
   { id: "slot-a-1", exerciseId: "ex-chest-press" },
   { id: "slot-a-2", exerciseId: "ex-butterfly" },
-  { id: "slot-a-3", exerciseId: "ex-lat-pulldown" },
+  {
+    id: "slot-a-3",
+    exerciseId: "ex-lat-pulldown",
+    label: "Latzug",
+    alternativeExerciseIds: ["ex-lat-cable"],
+  },
   { id: "slot-a-4", exerciseId: "ex-row" },
   { id: "slot-a-5", exerciseId: "ex-reverse-butterfly" },
   { id: "slot-a-9", exerciseId: "ex-shoulder-press" },
